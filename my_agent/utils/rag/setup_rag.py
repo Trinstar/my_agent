@@ -10,7 +10,7 @@ logger = get_logger()
 
 
 class RAGModule:
-    def __init__(self, config_path: str):
+    def __init__(self, rag_config: dict):
         """
         初始化RAG模块
 
@@ -18,16 +18,14 @@ class RAGModule:
             config_path: 配置文件路径
         """
 
-        with open(config_path, 'r') as file:
-            config = yaml.safe_load(file)
-        self.config: dict = config
-        self.topk: int = self.config.get('TOP_K', 3)
+        self.config: dict = rag_config
+        self.topk: int = self.config.get('top_k', 3)
 
         self._data_prep = DataPreparationModule(
-            data_path=config['FILE_DATA_PATH'])
+            data_path=self.config['file_data_path'])
         self._index_module = IndexConstructionModule(
-            index_save_path=config['FILE_INDEX_PATH'],
-            model_name=config['EMBEDDING_MODEL']
+            index_save_path=self.config['file_index_path'],
+            model_name=self.config['embedding_model']
         )
 
         self.documents = None

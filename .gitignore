@@ -84,3 +84,6 @@ pip-delete-this-directory.txt
 # OS files
 Thumbs.db
 .DS_Store
+
+# data files
+data/

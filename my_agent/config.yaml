@@ -1,0 +1,28 @@
+# MCP Server Tools
+mcp_tools:
+  amap-server:
+    transport: streamable_http
+    url: http://localhost:8000/mcp
+  # 12306-mcp-server:
+  #   transport: streamable_http
+  #   url: http://localhost:8001/mcp
+
+# Functional Tools
+func_tools:
+  web_search:
+    timeout: 10 
+    ca_bundle: /etc/ssl/certs/ca-certificates.crt  # CA证书路径
+    user_agent: "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36"
+
+# Database
+database:
+  uri: sqlite:///data/DB/mysqlite.db
+  query_limit: 5   # SQL查询限制
+
+
+# RAG
+rag:
+  file_data_path: ./data/RAG/file/cook
+  file_index_path: ./data/RAG/index/cook
+  embedding_model: BAAI/bge-small-zh-v1.5
+  top_k: 3

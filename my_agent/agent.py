@@ -10,17 +10,17 @@ from langgraph.checkpoint.memory import InMemorySaver
 from my_agent.utils.models import select_model
 from my_agent.utils.tools import web_search, sql_factory
 from my_agent.utils.rag import RAGModule
+from my_agent.utils.config import get_config
+
+
+# 获取配置
+config = get_config()
 
 
 async def get_mcp_tools() -> list[BaseTool]:
-    mcp_client = MultiServerMCPClient(
-        {
-            "amap-server": {
-                "transport": "streamable_http",
-                "url": "http://localhost:8000/mcp"
-            },
-        }
-    )
+    """从配置文件加载MCP工具"""
+    mcp_servers = config.get_mcp_tools_config()
+    mcp_client = MultiServerMCPClient(mcp_servers)
     mcp_tools = await mcp_client.get_tools()
     return mcp_tools
 
@@ -31,14 +31,15 @@ def load_mcp_tools() -> list[BaseTool]:
 
 mcp_tools: list[BaseTool] = load_mcp_tools()
 
-my_db = SQLDatabase.from_uri("sqlite:///mysqlite.db")
+database_config = config.get_database_config()
+my_db = SQLDatabase.from_uri(database_config['uri'])
 SCHEMA = my_db.get_table_info()
 execute_sql: callable = sql_factory(my_db)
 
 tools = [web_search, execute_sql] + mcp_tools
 
-# 系统提示词
-SYSTEM_PROMPT = """你是一个有用的助手，你需要遵循以下要求：
+SYSTEM_PROMPT = """你是有用的助手，你需要遵循以下要求：
+1. 博客网站的网站是https://www.trinstar.cn，提问网站内容时直接静默使用web_search工具查询；
 2. 用户提问涉及到需要数据库查询，使用excute_sql工具；
 3. 不许编造内容，准确回答，无法把握的内容就诚实；
 4. 回答要简洁明了，避免冗长；
