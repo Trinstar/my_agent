@@ -1,7 +1,7 @@
 from langchain_community.utilities import SQLDatabase
 from dataclasses import dataclass
 from langgraph.runtime import get_runtime
-from langchain_core.tools import tool
+from langchain.tools import tool
 from typing import Optional, Callable
 import re
 

@@ -2,6 +2,7 @@
 # -*- coding: utf-8 -*-
 
 import asyncio
+from rich import print as rprint
 
 from langchain.messages import AIMessage, HumanMessage, SystemMessage
 from langchain.agents import create_agent, AgentState
@@ -11,42 +12,57 @@ from langchain_mcp_adapters.client import MultiServerMCPClient
 from langgraph.checkpoint.memory import InMemorySaver
 
 from my_agent.utils.models import select_model
-from my_agent.utils.tools import web_search, sql_factory
+from my_agent.utils.tools import web_search, sql_factory, send_email
 from my_agent.utils.rag import RAGModule
 from my_agent.utils.config import get_config
-
+from my_agent.utils.clean_txt import clean_text
+from my_agent.utils.structured_output import WeatherOutput
 
 async def get_mcp_tools() -> list[BaseTool]:
     """从配置文件加载MCP工具"""
     config = get_config()
     mcp_servers = config.get_mcp_tools_config()
-    mcp_client = MultiServerMCPClient(mcp_servers)
-    mcp_tools = await mcp_client.get_tools()
+    mcp_tools = []
+    for server_name, server_config in mcp_servers.items():
+        single_mcp_server = {server_name: server_config}
+        single_mcp_client = MultiServerMCPClient(single_mcp_server)
+        try:
+            single_mcp_tools = await single_mcp_client.get_tools()
+            mcp_tools.extend(single_mcp_tools)
+        except ExceptionGroup as eg:
+            print(f"Failed to load MCP server '{server_name}':")
+            for exc in eg.exceptions:
+                print(f"  - {type(exc).__name__}: {exc}")
+        except Exception as e:
+            print(f"Failed to load MCP server '{server_name}': {type(e).__name__}: {e}")
+            import traceback
+            traceback.print_exc()
+
     return mcp_tools
 
 
 async def main():
     config = get_config()
-    mcp_tools: list[BaseTool] = await get_mcp_tools()
+    mcp_tools = await get_mcp_tools()
 
     # 从配置文件获取数据库URI
     database_config = config.get_database_config()
     my_db = SQLDatabase.from_uri(database_config['uri'])
     execute_sql: callable = sql_factory(my_db)
 
-    my_rag = RAGModule(rag_config=config.get_rag_config())
-    my_rag.prepare_data()
-    my_rag.load_index()
-
-    @tool
-    def rag_knowledge_search(query: str) -> str:
-        """这是关于菜谱的知识库查询工具，如果用户提问涉及到食材以及如何做饭，做什么菜，使用这个工具查询"""
-        docs = my_rag.index_similarity_search(query)
-        combined_content = "\n".join([doc.page_content for doc in docs])
-        return combined_content
+    # my_rag = RAGModule(rag_config=config.get_rag_config())
+    # my_rag.prepare_data()
+    # my_rag.load_index()
+    #
+    # @tool
+    # def rag_knowledge_search(query: str) -> str:
+    #     """这是关于菜谱的知识库查询工具，如果用户提问涉及到食材以及如何做饭，做什么菜，使用这个工具查询"""
+    #     docs = my_rag.index_similarity_search(query)
+    #     combined_content = "\n".join([doc.page_content for doc in docs])
+    #     return combined_content
 
     # tools list
-    tools = [web_search, execute_sql, rag_knowledge_search] + mcp_tools
+    tools = [web_search, execute_sql, send_email] + mcp_tools
 
     # 系统提示词
     SYSTEM_PROMPT = """你是有用的助手，你需要遵循以下要求：
@@ -67,9 +83,10 @@ async def main():
         system_prompt=SYSTEM_PROMPT,
         tools=tools,
         checkpointer=InMemorySaver(),
+        response_format=WeatherOutput,
     )
 
-    print("stream模型请选择1，invoke模式请选择2")
+    print(">stream模型请选择1，invoke模式请选择2")
     chat_mode = int(input())
     print()
 
@@ -80,6 +97,7 @@ async def main():
             if user_input == "0":
                 break
 
+            user_input = clean_text(user_input)
             messages = [
                 HumanMessage(content=user_input)
             ]
@@ -91,26 +109,26 @@ async def main():
             )
             for chunk in res["messages"]:
                 chunk.pretty_print()
+            print(res["structured_response"])
+
     elif chat_mode == 1:
         while True:
             user_input = input("User: ")
-
+            user_input = clean_text(user_input)
             if user_input == "0":
                 break
-            
+
             messages = [
                 HumanMessage(content=user_input)
             ]
 
-            print("AI: ", end='', flush=True)
-            async for chunk, metadata in blog_agent.astream(
+            async for step in blog_agent.astream(
                 {"messages": messages},
                 {"thread_id": "default_thread"},
-                stream_mode="messages"
             ):
-                if chunk.content and metadata["langgraph_node"] != "tools":
-                    print(chunk.content, end='', flush=True)
-            print()
+                for update in step.values():
+                    for message in update.get("messages", []):
+                        message.pretty_print()
 
 if __name__ == "__main__":
     asyncio.run(main())
