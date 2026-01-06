@@ -69,7 +69,7 @@ where = ["."]
 include = ["my_agent*"]
 
 [tool.setuptools.package-data]
-my_agent = ["utils/rag/config.yaml"]
+my_agent = ["config.yaml"]
 
 [tool.black]
 line-length = 100

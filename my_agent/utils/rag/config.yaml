@@ -1,4 +1,0 @@
-FILE_DATA_PATH: "./data/file/cook"
-FILE_INDEX_PATH: "./data/index/cook"
-EMBEDDING_MODEL: "BAAI/bge-small-zh-v1.5"
-TOP_K: 3
