@@ -112,16 +112,13 @@ async def main():
             system_prompt=SYSTEM_PROMPT,
             tools=tools,
             middleware=[
-                ReadStoreMiddleware(),
                 FilesystemFileSearchMiddleware(
                     root_path="/mnt/d/LangChain/my-agent",
                     use_ripgrep=True,
                     max_file_size_mb=5,
                 ),
-                SaveStoreMiddleware(),
             ],
             checkpointer=sqlite_saver,
-            store=sqlite_store,
             context_schema=Context,
         )
 
